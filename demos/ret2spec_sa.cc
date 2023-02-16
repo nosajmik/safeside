@@ -56,7 +56,8 @@ int main() {
   std::cout.flush();
   for (size_t i = 0; i < strlen(private_data); ++i) {
     current_offset = i;
-    std::cout << Ret2specLeakByte();
+    // std::cout << Ret2specLeakByte();
+    std::cout << Ret2AbortedCallLeakByte();
     std::cout.flush();
   }
   std::cout << "\nDone!\n";

