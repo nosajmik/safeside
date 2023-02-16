@@ -99,7 +99,7 @@ bool bar() {
     // Return address is consistently at stack_mark + 20 bytes
     // on Jason's ThinkPad. Can't do FlushFromDataCache under
     // speculation since it doesn't fit in the window.
-    FlushDataCacheLineNoBarrier(ptr + 20);
+    FlushDataCacheLineNoBarrier(ptr + 4);
 
     // This is copied here just to make sure speculation works.
     // For testing ret2spec, comment this out.
@@ -110,7 +110,7 @@ bool bar() {
     return true;
   }
 
-  FlushDataCacheLine(ptr + 20);
+  FlushDataCacheLine(ptr + 4);
   return false;
 }
 
