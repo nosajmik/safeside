@@ -84,7 +84,8 @@ void baz() {
 
   // mfence and lfence, closing speculation window
   MemoryAndSpeculationBarrier();
-  while (true) {}
+  // This leads gcc to eliminate all code generation after baz.
+  // while (true) {}
 }
 
 bool bar() {
