@@ -12,6 +12,9 @@
 // error. Declaring it extern in here.
 extern const char *private_data;
 
+// "wtf it's the rsb"
+extern const char *public_data;
+
 // Calls sched_yield in the cross-address-space version.
 void (*return_true_base_case)();
 // Calls sched_yield in the cross-address-space version, in the
@@ -79,13 +82,18 @@ void baz() {
   // This is copied here just to make sure speculation works.
   // For testing ret2spec, comment this out.  
   // const std::array<BigByte, 256> &oracle = *oracle_ptr;
-  //   ForceRead(oracle.data() +
-  //     static_cast<unsigned char>(private_data[current_offset]));
+  // ForceRead(oracle.data() +
+  //  static_cast<unsigned char>(private_data[current_offset]));
 
   // mfence and lfence, closing speculation window
   MemoryAndSpeculationBarrier();
   // This leads gcc to eliminate all code generation after baz.
   // while (true) {}
+}
+
+// Target to hijack control flow to while preventing segfault.
+void doNothing() {
+  asm volatile("nop");
 }
 
 bool bar() {
@@ -96,8 +104,7 @@ bool bar() {
   for (int i = 0; i < 100; i++) {}
 
   if (cond == 0) {
-    // Return address is consistently at stack_mark + 20 bytes
-    // on Jason's ThinkPad. Can't do FlushFromDataCache under
+    // Can't do FlushFromDataCache under
     // speculation since it doesn't fit in the window.
     FlushDataCacheLineNoBarrier(ptr + 4);
 
@@ -109,6 +116,9 @@ bool bar() {
 
     return true;
   }
+
+  // Address of doNothing.
+  *(volatile uint64_t *)(ptr + 4) = 0x0000555555555428;
 
   FlushDataCacheLine(ptr + 4);
   return false;
@@ -136,6 +146,18 @@ void foo() {
     ForceRead(oracle.data() +
       static_cast<unsigned char>(private_data[current_offset]));
   }
+
+  // When cond = 1, bar's return address gets hijacked to doNothing,
+  // then doNothing returns to the instruction after the call to foo() in 
+  // Ret2AbortedCallLeakByte. Hence, if the CPU manages to get the
+  // architectural return address somehow from the stack, this code will
+  // never be reached, even under speculation. 
+  // But if the CPU rolls back the RSB after misspeculation, this code will
+  // execute transiently, after which the CPU will revert and return to doNothing.
+  // However, probing the cache channel will result in "wtf rsb rollback".
+  const std::array<BigByte, 256> &oracle = *oracle_ptr;
+  ForceRead(oracle.data() +
+    static_cast<unsigned char>(public_data[current_offset]));
 }
 
 char Ret2specLeakByte() {

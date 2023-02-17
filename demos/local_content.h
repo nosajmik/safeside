@@ -15,7 +15,9 @@
 // intended to be leaked outside of the C++ execution model using sidechannels.
 // Concrete sidechannel is dependent on the concrete vulnerability that we are
 // demonstrating.
-const char *public_data = "Hello, world!";
+
+// Change this to print for RSB rollback testing
+const char *public_data = "wtf rsb rollback";
 const char *private_data = "It's a s3kr3t!!!";
 
 #endif  // DEMOS_LOCAL_CONTENT_H_
