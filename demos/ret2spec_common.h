@@ -20,3 +20,4 @@ extern const std::array<BigByte, 256> *oracle_ptr;
 bool ReturnsFalse(int counter);
 char Ret2specLeakByte();
 char Ret2AbortedCallLeakByte();
+char Ret2Transient();
