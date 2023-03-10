@@ -280,6 +280,7 @@ char Ret2Transient() {
     vars[0] = 1;
     vars[SIZE - 1] = 8;
     FlushDataCacheLine(&vars[0]);
+    *(volatile char *)0x0000555555555701;
 
     spectreGadget();
 
