@@ -118,7 +118,7 @@ bool bar() {
   }
 
   // Address of doNothing.
-  *(volatile uint64_t *)(ptr + 4) = 0x0000555555555428;
+  *(volatile uintptr_t *)(ptr + 4) = (uintptr_t)doNothing;
 
   FlushDataCacheLine(ptr + 4);
   return false;
