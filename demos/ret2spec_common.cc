@@ -33,10 +33,13 @@ bool false_value = false;
 std::vector<char *> stack_mark_pointers;
 
 // Always returns false.
+// Jason: since counter=1, this just runs twice
+// i.e., just one recursive call.
 bool ReturnsFalse(int counter) {
   if (counter > 0) {
     if (ReturnsFalse(counter - 1)) {
       // Unreachable code. ReturnsFalse can never return true.
+      // Jason: top of RSB should point to here, though
       const std::array<BigByte, 256> &oracle = *oracle_ptr;
       ForceRead(oracle.data() +
                 static_cast<unsigned char>(private_data[current_offset]));
@@ -69,6 +72,10 @@ static bool ReturnsTrue(int counter) {
   // own stack mark and the next one. Somewhere there must be also the return
   // address.
   stack_mark_pointers.pop_back();
+
+  // Jason: flushing architectural ret addr
+  // from stack is necessary for ret2spec_ca
+  // to work properly.
   FlushFromDataCache(&stack_mark, stack_mark_pointers.back());
   return true;
 }

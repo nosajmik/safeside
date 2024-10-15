@@ -42,9 +42,11 @@
 
 #include "cache_sidechannel.h"
 #include "instr.h"
-#include "local_content.h"
 #include "ret2spec_common.h"
 #include "utils.h"
+
+const char *public_data = "Hello, world!";
+const char *private_data = "It's a s3kr3t!!!";
 
 // Yield the CPU.
 static void Unschedule() {
@@ -62,6 +64,7 @@ int main() {
   if (fork() == 0) {
     // The child (attacker) infinitely fills the RSB using recursive calls.
     while (true) {
+      // Jason: recursion depth is just 1!
       ReturnsFalse(kRecursionDepth);
       // If the parent pid changed, the parent is dead and it's time to
       // terminate.
@@ -70,6 +73,11 @@ int main() {
       }
     }
   } else {
+    // Jason: try changing the private data to ascertain
+    // that it's the parent picking up signal from
+    // mistrained RSB entries from the child.
+    private_data = "Duvalier is pwned!!!";
+
     // The parent (victim) calls only LeakByte and ReturnTrue, never
     // ReturnFalse.
     std::cout << "Leaking the string: ";

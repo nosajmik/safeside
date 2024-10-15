@@ -1,6 +1,10 @@
 // Recursion depth should be equal or greater than the RSB size, but not
 // excessively high because of the possibility of stack overflow.
-constexpr size_t kRecursionDepth = 64;
+
+// Jason: what if we don't underflow the RSB
+// and just poison what's at the top across
+// different processes?
+constexpr size_t kRecursionDepth = 1;
 
 // Modular function pointers that provide different functionality in the
 // same-address-space and cross-address-space version. We use this design,
