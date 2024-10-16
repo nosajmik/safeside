@@ -6,4 +6,4 @@ if(NOT "${CMAKE_SYSTEM_PROCESSOR}" MATCHES "^aarch64$")
   return()
 endif()
 
-build_kernel_module(eret_hvc_smc_module)
+# build_kernel_module(eret_hvc_smc_module)
