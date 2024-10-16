@@ -158,10 +158,10 @@ if (TARGET ret2spec_callret_disparity)
 endif()
 
 # Spectre V3 / Meltdown
-add_demo(meltdown SYSTEMS Linux PROCESSORS i686 x86_64 ppc64le)
+add_demo(meltdown SYSTEMS Linux PROCESSORS i686 x86_64 ppc64le aarch64)
 
 # L1 terminal fault -- Foreshadow OS -- Meltdown P
-add_demo(l1tf SYSTEMS Linux PROCESSORS i686 x86_64 ppc64le)
+add_demo(l1tf SYSTEMS Linux PROCESSORS i686 x86_64 ppc64le aarch64)
 
 # Speculation over ERET, HVC and SMC instructions
 add_demo(eret_hvc_smc_wrapper SYSTEMS Linux PROCESSORS aarch64)

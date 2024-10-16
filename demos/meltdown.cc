@@ -13,10 +13,6 @@
 #  error Unsupported OS. Linux required.
 #endif
 
-#if !SAFESIDE_X64 && !SAFESIDE_IA32 && !SAFESIDE_PPC
-#  error Unsupported architecture. x86/x86_64 or PowerPC required.
-#endif
-
 #include <array>
 #include <cstring>
 #include <fstream>
