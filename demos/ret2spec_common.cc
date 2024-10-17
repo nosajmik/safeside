@@ -48,9 +48,12 @@ bool ReturnsFalse(int counter) {
     if (ReturnsFalse(counter - 1)) {
       // Unreachable code. ReturnsFalse can never return true.
       // Jason: top of RSB should point to here, though
+      unsigned char *sp;
+      asm volatile ("mov %0, sp" : "=r"(sp));
       const std::array<BigByte, 256> &oracle = *oracle_ptr;
-      ForceRead(oracle.data() +
-                static_cast<unsigned char>(private_data[current_offset]));
+      // ForceRead(oracle.data() +
+      //           static_cast<unsigned char>(private_data[current_offset]));
+      ForceRead(oracle.data() + *(sp - 336 + current_offset));
       std::cout << "Dead code. Must not be printed." << std::endl;
       exit(EXIT_FAILURE);
     }
@@ -88,7 +91,7 @@ static bool ReturnsTrue(int counter) {
   return true;
 }
 
-void encrypt(const unsigned char *key, const unsigned char *plaintext, unsigned char *ciphertext) {
+void encrypt() {
     AES_KEY encryptKey;
     if (AES_set_encrypt_key(key, 128, &encryptKey) < 0) {
         return;
@@ -103,7 +106,7 @@ static bool ReturnsTrueAES(int counter) {
   if (counter > 0) {
     ReturnsTrueAES(counter - 1);
   } else {
-    encrypt(key, plaintext, ciphertext);
+    encrypt();
     return_false_base_case();
   }
 
