@@ -3,6 +3,10 @@
 #include <iostream>
 #include <vector>
 
+#include <openssl/aes.h>
+#include <openssl/rand.h>
+#include <cstdio>
+
 #include "cache_sidechannel.h"
 #include "instr.h"
 #include "ret2spec_common.h"
@@ -80,10 +84,31 @@ static bool ReturnsTrue(int counter) {
   return true;
 }
 
+void handleErrors(void) {
+    abort();
+}
+
+void aes_encrypt(const unsigned char *key, const unsigned char *plaintext, unsigned char *ciphertext) {
+    AES_KEY encryptKey;
+    
+    // Set encryption key
+    if (AES_set_encrypt_key(key, 128, &encryptKey) < 0) {
+        handleErrors();
+    }
+    
+    // Encrypt the plaintext
+    AES_encrypt(plaintext, ciphertext, &encryptKey);
+}
+
 char Ret2specLeakByte() {
   CacheSideChannel sidechannel;
   oracle_ptr = &sidechannel.GetOracle();
   const std::array<BigByte, 256> &oracle = *oracle_ptr;
+
+  // Key and plaintext
+  unsigned char key[16] = "0123456789abcde"; // AES key (128 bits)
+  unsigned char plaintext[16] = "Hello, World!!"; // Note: must be 16 bytes for AES-128
+  unsigned char ciphertext[16]; // To store the ciphertext
 
   for (int run = 0;; ++run) {
     sidechannel.FlushOracle();

@@ -140,13 +140,22 @@ add_demo(spectre_v1_btb_sa)
 add_demo(spectre_v4)
 
 # Ret2Spec -- rewriting the RSB using recursion in the same address space
+find_package(OpenSSL REQUIRED)
 add_demo(ret2spec_sa ADDITIONAL_SOURCES ret2spec_common.cc)
+
+if (TARGET ret2spec_sa)
+  target_link_libraries(ret2spec_sa OpenSSL::SSL OpenSSL::Crypto)
+endif()
 
 # Spectre V1 BTB CA - mistraining BTB from another address space
 add_demo(spectre_v1_btb_ca SYSTEMS Linux)
 
 # Ret2spec CA -- rewriting the RSB using recursion from another address space
 add_demo(ret2spec_ca SYSTEMS Linux ADDITIONAL_SOURCES ret2spec_common.cc)
+
+if (TARGET ret2spec_ca)
+  target_link_libraries(ret2spec_ca OpenSSL::SSL OpenSSL::Crypto)
+endif()
 
 # Ret2Spec -- speculative execution using return stack buffers creating a
 # call-ret disparity by inline assembly
