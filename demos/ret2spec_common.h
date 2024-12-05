@@ -4,7 +4,7 @@
 // Jason: what if we don't underflow the RSB
 // and just poison what's at the top across
 // different processes?
-constexpr size_t kRecursionDepth = 1;
+constexpr size_t kRecursionDepth = 2;
 
 // Modular function pointers that provide different functionality in the
 // same-address-space and cross-address-space version. We use this design,
